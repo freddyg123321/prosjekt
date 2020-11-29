@@ -1,0 +1,169 @@
+---
+title: "Visualisation"
+author: "Fredrik Lindholm"
+date: "11/29/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+pacman::p_load(tidyverse, skimr, GGally, plotly, viridis, caret, randomForest, e1071, rpart, 
+                xgboost, h2o, corrplot, rpart.plot, corrgram, ggplot2, highcharter, 
+                ggthemes, psych, scales, treemap, treemapify, repr, cowplot, magrittr, ggpubr,
+                RColorBrewer, plotrix, ggrepel, tidyverse, gridExtra, lubridate)
+```
+
+
+```{r}
+churn <- read.csv("~/Documents/Introduction to R/Data/BankChurners.csv")
+View(churn)
+str(churn)
+
+sum(is.na(churn))   # ingen NA verdier
+```
+
+
+# Visualisation
+
+
+
+## Kjønn
+
+Dette viser at det er flere kvinner enn menn som churner, både i absolutt- og relative verdier.
+
+```{r data-import, include = TRUE}
+table(churn$Gender)
+
+churn %>% 
+  group_by(Attrition_Flag, Gender) %>% 
+  summarise(total = n()) %>% 
+  ggplot(aes(x=Gender, y = total, fill = Attrition_Flag))+
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_economist()+
+  scale_fill_brewer(palette = "Set2")
+
+
+# Relative value
+
+churn %>% 
+  count(Gender, Attrition_Flag) %>% 
+  mutate(perc= n / nrow(churn)) %>% 
+  ggplot(aes(x=Gender, y=perc, fill=Attrition_Flag))+
+  geom_bar(stat="identity", position = "dodge")+
+  theme_economist()+
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+
+## Utdanningsnivå 
+
+relative og absolut verdien er lik og man ser at det er graduite som churner mest etterfulgt av highschool.
+
+```{r data-import, include = TRUE}
+unique(churn$Education_Level)
+
+churn %>% 
+  mutate(Education_Level=fct_relevel(Education_Level, "Unknown", "Uneducated", "High School", "College", "Graduate", "Post-Graduate", "Doctorate")) %>% 
+  ggplot()+
+  geom_bar(aes(x=Education_Level, fill=Attrition_Flag), position = "dodge")+
+  theme_economist()+
+  scale_fill_brewer(palette = "Set2")
+
+# Relative value
+
+churn %>% 
+  count(Education_Level, Attrition_Flag) %>% 
+  mutate(perc= n / nrow(churn)) %>% 
+  mutate(Education_Level=fct_relevel(Education_Level, "Unknown", "Uneducated", "High School", "College", "Graduate", "Post-Graduate", "Doctorate")) %>% 
+  ggplot(aes(x=Education_Level, y = perc, fill=Attrition_Flag ))+
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_economist()+
+  scale_fill_brewer(palette = "Set2")
+
+
+
+```
+
+## Inntektsnivå
+
+Dette her viser at det er flest fra inntektsklassen "less than $40 K" som churner. Men dersom man ser på sannsynligheten på en per inntektsklasse basis så er sjansen for at man churner tilsvarende lik.
+
+```{r data-import, include = TRUE}
+churn %>% 
+  mutate(Income_Category=fct_relevel(Income_Category, "Unknown", "Less than $40K", "$40K - $60K", "$60K - $80K", "$80K - $120K", "$120K +")) %>% 
+  group_by(Income_Category, Attrition_Flag) %>% 
+  summarise(total=n()) %>% 
+  ggplot(aes(y = total, x = Income_Category, fill=Attrition_Flag))+
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_economist()+
+  scale_fill_brewer(palette = "Set2")
+
+# Relative
+
+churn %>% 
+  count(Income_Category, Attrition_Flag) %>% 
+  mutate(perc = n / nrow(churn)) %>% 
+  mutate(Income_Category=fct_relevel(Income_Category, "Unknown", "Less than $40K", "$40K - $60K", "$60K - $80K", "$80K - $120K", "$120K +")) %>% 
+  ggplot(aes(y = perc, x = Income_Category, fill=Attrition_Flag))+
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_economist()+
+  scale_fill_brewer(palette = "Set2")
+
+churn %>% 
+  mutate(Income_Category=fct_relevel(Income_Category, "Unknown", "Less than $40K", "$40K - $60K", "$60K - $80K", "$80K - $120K", "$120K +")) %>% 
+  group_by(Income_Category, Attrition_Flag) %>% 
+  summarise(total=n()) %>% 
+  mutate(attrition.per.cent = (total)/sum(total)) %>% 
+  ggplot(aes(y = attrition.per.cent, x = Income_Category, fill = Attrition_Flag))+
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_economist()+
+  scale_fill_brewer(palette = "Set2")
+
+```
+
+
+## Alder 
+
+Benytter boxplot for å finne mean, kvartiler og outliners. Ettersom vi ønsker å lage en violin plot kunne det vært greit å se fordelingen observasjonene har. Som vi ser fra andre graf så er dette en tilnærmet normalfordeling. Den siste grafen viser det vi har vist i de to forrige grafene egentlig. 
+
+```{r data-import, include = TRUE}
+churn %>% 
+  ggplot(aes(y=Customer_Age))+
+  geom_boxplot(fill="#7FB3D5", outlier.size = 3)+
+  theme(axis.text.y = element_blank())+
+  xlab(label = "Age Box Plot")+
+  scale_y_continuous(breaks = (seq(min(churn$Customer_Age), max(churn$Customer_Age), by=5)))+
+  ylab(label = "Customers Age")+
+  coord_flip()+
+  theme_economist()
+
+churn %>% 
+  ggplot(aes(x=Customer_Age)) +
+  geom_bar(fill = "sienna3")+
+  theme_economist()
+
+churn %>% 
+  ggplot(aes(x=Attrition_Flag, y=Customer_Age, colour=Attrition_Flag))+
+  geom_violin(trim = FALSE)+
+  scale_color_brewer(palette="Dark2")+
+  stat_summary(size =1)+
+  scale_y_continuous(breaks = (seq(min(churn$Customer_Age), max(churn$Customer_Age), by=5)))+
+  theme_economist()+
+  theme(legend.position = "none")
+
+```
+
+## Hvordan påvirker dette churn
+
+```{r data-import, include = TRUE}
+churn %>% 
+  group_by(Customer_Age, Attrition_Flag) %>% 
+  summarise(total = n()) %>% 
+  ggplot(aes(x=Customer_Age, y=total, fill=Attrition_Flag))+
+  geom_bar(stat = "identity", position = "dodge")+
+  theme_economist()+
+  scale_fill_brewer(palette = "Set2")
+
+```
